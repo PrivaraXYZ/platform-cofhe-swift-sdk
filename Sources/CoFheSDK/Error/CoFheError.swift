@@ -43,6 +43,8 @@ public enum CoFheError: Error, Sendable {
     case networkError(message: String, underlyingError: Error)
     /// JSON parsing failure.
     case serializationError(message: String, underlyingError: Error)
+    /// Invalid input parameter (client-side validation).
+    case invalidInput(message: String)
 
     /// HTTP status code associated with this error (0 for client-side errors).
     public var statusCode: Int {
@@ -53,7 +55,7 @@ public enum CoFheError: Error, Sendable {
         case .notInitialized, .initializationFailed, .poolExhausted: return 503
         case .timeout: return 504
         case .unknownServerError(_, let code): return code
-        case .networkError, .serializationError: return 0
+        case .networkError, .serializationError, .invalidInput: return 0
         }
     }
 
@@ -73,6 +75,7 @@ public enum CoFheError: Error, Sendable {
         case .unknownServerError(let msg, _): return msg
         case .networkError(let msg, _): return msg
         case .serializationError(let msg, _): return msg
+        case .invalidInput(let msg): return msg
         }
     }
 

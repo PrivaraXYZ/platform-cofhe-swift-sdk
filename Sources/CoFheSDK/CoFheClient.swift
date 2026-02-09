@@ -22,9 +22,11 @@ import Foundation
 /// ```
 ///
 /// All methods throw ``CoFheError`` on errors.
-public final class CoFheClient: Sendable {
+public final class CoFheClient: @unchecked Sendable {
 
     private let httpClient: HTTPClient
+    private let closedLock: NSLock
+    private var _isClosed: Bool = false
 
     /// Create a client with the given configuration.
     public init(config: CoFheClientConfig) {
@@ -35,64 +37,84 @@ public final class CoFheClient: Sendable {
             requestTimeout: config.requestTimeout,
             connectTimeout: config.connectTimeout
         )
+        self.closedLock = NSLock()
+    }
+
+    private func checkNotClosed() throws {
+        closedLock.lock()
+        defer { closedLock.unlock() }
+        guard !_isClosed else {
+            throw CoFheError.invalidInput(message: "Client has been closed and cannot be used")
+        }
     }
 
     // MARK: - Typed endpoints
 
     /// Encrypt an 8-bit unsigned integer (0..255).
     public func encryptUint8(value: Int, userAddress: String) async throws -> EncryptedValue {
-        precondition(value >= 0 && value <= 255, "uint8 value must be in range 0..255, got \(value)")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        guard value >= 0 && value <= 255 else {
+            throw CoFheError.invalidInput(message: "uint8 value must be in range 0..255, got \(value)")
+        }
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint8, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt a 16-bit unsigned integer (0..65535).
     public func encryptUint16(value: Int, userAddress: String) async throws -> EncryptedValue {
-        precondition(value >= 0 && value <= 65535, "uint16 value must be in range 0..65535, got \(value)")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        guard value >= 0 && value <= 65535 else {
+            throw CoFheError.invalidInput(message: "uint16 value must be in range 0..65535, got \(value)")
+        }
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint16, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt a 32-bit unsigned integer (0..4294967295).
     public func encryptUint32(value: UInt32, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint32, body: TypedRequest(value: String(value), userAddress: userAddress))
     }
 
     /// Encrypt a 64-bit unsigned integer. Value is a decimal string (0..2^64-1).
     public func encryptUint64(value: String, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireUintRange(value: value, bits: 64, label: "uint64")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireUintRange(value: value, bits: 64, label: "uint64")
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint64, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt a 128-bit unsigned integer. Value is a decimal string (0..2^128-1).
     public func encryptUint128(value: String, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireUintRange(value: value, bits: 128, label: "uint128")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireUintRange(value: value, bits: 128, label: "uint128")
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint128, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt a 256-bit unsigned integer. Value is a decimal string (0..2^256-1).
     public func encryptUint256(value: String, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireUintRange(value: value, bits: 256, label: "uint256")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireUintRange(value: value, bits: 256, label: "uint256")
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptUint256, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt an Ethereum address (0x + 40 hex characters).
     public func encryptAddress(value: String, userAddress: String) async throws -> EncryptedValue {
-        precondition(
-            Validation.isValidAddress(value),
-            "address must match 0x followed by 40 hex characters, got \(value)"
-        )
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        guard Validation.isValidAddress(value) else {
+            throw CoFheError.invalidInput(message: "address must match 0x followed by 40 hex characters, got \(value)")
+        }
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptAddress, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
     /// Encrypt a boolean value.
     public func encryptBool(value: Bool, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireValidAddress(userAddress)
         return try await httpClient.post(path: ApiPaths.encryptBool, body: TypedRequest(value: value, userAddress: userAddress))
     }
 
@@ -107,7 +129,8 @@ public final class CoFheClient: Sendable {
     /// - `.uint64`, `.uint128`, `.uint256`: `String` (decimal)
     /// - `.address`: `String` (0x + 40 hex)
     public func encrypt(type: EncryptionType, value: Any, userAddress: String) async throws -> EncryptedValue {
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        try Validation.requireValidAddress(userAddress)
         let encodableValue = toEncodableValue(type: type, value: value)
         return try await httpClient.post(
             path: ApiPaths.encrypt,
@@ -119,9 +142,14 @@ public final class CoFheClient: Sendable {
 
     /// Encrypt multiple values in a single request (1..10 items).
     public func encryptBatch(userAddress: String, items: [BatchItem]) async throws -> BatchEncryptResult {
-        precondition(!items.isEmpty, "batch items must not be empty")
-        precondition(items.count <= 10, "batch items must not exceed 10, got \(items.count)")
-        Validation.requireValidAddress(userAddress)
+        try checkNotClosed()
+        guard !items.isEmpty else {
+            throw CoFheError.invalidInput(message: "batch items must not be empty")
+        }
+        guard items.count <= 10 else {
+            throw CoFheError.invalidInput(message: "batch items must not exceed 10, got \(items.count)")
+        }
+        try Validation.requireValidAddress(userAddress)
 
         let batchItems = items.map { item in
             BatchRequestItem(type: item.type, value: item.value)
@@ -137,6 +165,7 @@ public final class CoFheClient: Sendable {
     /// Liveness probe. Returns `true` if the service is running.
     public func isAlive() async -> Bool {
         do {
+            try checkNotClosed()
             let statusCode = try await httpClient.getStatusCode(path: ApiPaths.health)
             return (200..<300).contains(statusCode)
         } catch {
@@ -147,6 +176,7 @@ public final class CoFheClient: Sendable {
     /// Readiness probe. Returns `true` if the FHE SDK is initialized and ready.
     public func isReady() async -> Bool {
         do {
+            try checkNotClosed()
             let status: HealthStatus = try await healthReady()
             return status.isHealthy
         } catch {
@@ -156,6 +186,7 @@ public final class CoFheClient: Sendable {
 
     /// Detailed readiness status.
     public func healthReady() async throws -> HealthStatus {
+        try checkNotClosed()
         return try await httpClient.get(path: ApiPaths.healthReady)
     }
 
@@ -165,6 +196,9 @@ public final class CoFheClient: Sendable {
     ///
     /// Only invalidates the URLSession if it was created by the SDK.
     public func close() {
+        closedLock.lock()
+        _isClosed = true
+        closedLock.unlock()
         httpClient.close()
     }
 
@@ -196,14 +230,20 @@ public final class CoFheClient: Sendable {
     private func toEncodableValue(type: EncryptionType, value: Any) -> AnyEncodable {
         switch type {
         case .bool:
-            return AnyEncodable(value as! Bool)
+            guard let boolVal = value as? Bool else {
+                preconditionFailure("Expected Bool value for .bool type, got \(Swift.type(of: value))")
+            }
+            return AnyEncodable(boolVal)
         case .uint8, .uint16:
             if let intVal = value as? Int {
                 return AnyEncodable(intVal)
             }
             return AnyEncodable(String(describing: value))
         case .address:
-            return AnyEncodable(value as! String)
+            guard let strVal = value as? String else {
+                preconditionFailure("Expected String value for .address type, got \(Swift.type(of: value))")
+            }
+            return AnyEncodable(strVal)
         default:
             if let strVal = value as? String {
                 return AnyEncodable(strVal)

@@ -41,7 +41,12 @@ final class HTTPClient: @unchecked Sendable {
     }
 
     func post<Req: Encodable, Res: Decodable>(path: String, body: Req) async throws -> Res {
-        let url = URL(string: "\(baseURL)\(path)")!
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw CoFheError.networkError(
+                message: "Invalid URL: \(baseURL)\(path)",
+                underlyingError: URLError(.badURL)
+            )
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -56,7 +61,12 @@ final class HTTPClient: @unchecked Sendable {
     }
 
     func get<Res: Decodable>(path: String) async throws -> Res {
-        let url = URL(string: "\(baseURL)\(path)")!
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw CoFheError.networkError(
+                message: "Invalid URL: \(baseURL)\(path)",
+                underlyingError: URLError(.badURL)
+            )
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -69,7 +79,12 @@ final class HTTPClient: @unchecked Sendable {
     }
 
     func getStatusCode(path: String) async throws -> Int {
-        let url = URL(string: "\(baseURL)\(path)")!
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw CoFheError.networkError(
+                message: "Invalid URL: \(baseURL)\(path)",
+                underlyingError: URLError(.badURL)
+            )
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
