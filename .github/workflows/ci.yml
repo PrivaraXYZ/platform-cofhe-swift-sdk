@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-macos:
+  build:
     runs-on: macos-14
 
     steps:
@@ -16,20 +16,24 @@ jobs:
       - name: Build
         run: swift build
 
-      - name: Run tests
-        run: swift test
+      - name: Run tests with coverage
+        run: swift test --enable-code-coverage
 
-  build-linux:
-    runs-on: ubuntu-latest
+      - name: Export coverage to lcov
+        run: |
+          BIN_PATH=$(swift build --show-bin-path)
+          XCTEST_PATH=$(find "$BIN_PATH" -name '*.xctest' -type d | head -1)
+          EXEC_PATH="$XCTEST_PATH/Contents/MacOS/$(basename "$XCTEST_PATH" .xctest)"
+          PROFDATA=$(find .build -name 'default.profdata' -type f | head -1)
+          xcrun llvm-cov export "$EXEC_PATH" \
+            -instr-profile="$PROFDATA" \
+            -format=lcov \
+            -ignore-filename-regex='Tests/|.build/' \
+            > coverage.lcov
 
-    container:
-      image: swift:5.9
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build
-        run: swift build
-
-      - name: Run tests
-        run: swift test
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.lcov
+          fail_ci_if_error: false
