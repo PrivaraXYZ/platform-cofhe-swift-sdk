@@ -24,14 +24,18 @@ public struct BatchItem: Sendable {
     }
 
     /// Create a uint8 batch item (0..255).
-    public static func uint8(_ value: Int) -> BatchItem {
-        precondition(value >= 0 && value <= 255, "uint8 value must be in range 0..255, got \(value)")
+    public static func uint8(_ value: Int) throws -> BatchItem {
+        guard value >= 0 && value <= 255 else {
+            throw CoFheError.invalidInput(message: "uint8 value must be in range 0..255, got \(value)")
+        }
         return BatchItem(type: .uint8, value: AnyEncodable(value))
     }
 
     /// Create a uint16 batch item (0..65535).
-    public static func uint16(_ value: Int) -> BatchItem {
-        precondition(value >= 0 && value <= 65535, "uint16 value must be in range 0..65535, got \(value)")
+    public static func uint16(_ value: Int) throws -> BatchItem {
+        guard value >= 0 && value <= 65535 else {
+            throw CoFheError.invalidInput(message: "uint16 value must be in range 0..65535, got \(value)")
+        }
         return BatchItem(type: .uint16, value: AnyEncodable(value))
     }
 
@@ -41,29 +45,28 @@ public struct BatchItem: Sendable {
     }
 
     /// Create a uint64 batch item. Value is a decimal string (0..2^64-1).
-    public static func uint64(_ value: String) -> BatchItem {
-        Validation.requireUintRange(value: value, bits: 64, label: "uint64")
+    public static func uint64(_ value: String) throws -> BatchItem {
+        try Validation.requireUintRange(value: value, bits: 64, label: "uint64")
         return BatchItem(type: .uint64, value: AnyEncodable(value))
     }
 
     /// Create a uint128 batch item. Value is a decimal string (0..2^128-1).
-    public static func uint128(_ value: String) -> BatchItem {
-        Validation.requireUintRange(value: value, bits: 128, label: "uint128")
+    public static func uint128(_ value: String) throws -> BatchItem {
+        try Validation.requireUintRange(value: value, bits: 128, label: "uint128")
         return BatchItem(type: .uint128, value: AnyEncodable(value))
     }
 
     /// Create a uint256 batch item. Value is a decimal string (0..2^256-1).
-    public static func uint256(_ value: String) -> BatchItem {
-        Validation.requireUintRange(value: value, bits: 256, label: "uint256")
+    public static func uint256(_ value: String) throws -> BatchItem {
+        try Validation.requireUintRange(value: value, bits: 256, label: "uint256")
         return BatchItem(type: .uint256, value: AnyEncodable(value))
     }
 
     /// Create an address batch item (0x + 40 hex characters).
-    public static func address(_ value: String) -> BatchItem {
-        precondition(
-            Validation.isValidAddress(value),
-            "address must match 0x followed by 40 hex characters, got \(value)"
-        )
+    public static func address(_ value: String) throws -> BatchItem {
+        guard Validation.isValidAddress(value) else {
+            throw CoFheError.invalidInput(message: "address must match 0x followed by 40 hex characters, got \(value)")
+        }
         return BatchItem(type: .address, value: AnyEncodable(value))
     }
 

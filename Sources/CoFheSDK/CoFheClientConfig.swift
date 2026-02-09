@@ -42,7 +42,27 @@ public struct CoFheClientConfig: Sendable {
         enableLogging: Bool = false,
         urlSession: URLSession? = nil
     ) {
-        precondition(!baseURL.trimmingCharacters(in: .whitespaces).isEmpty, "baseURL must not be blank")
+        let trimmedURL = baseURL.trimmingCharacters(in: .whitespaces)
+        precondition(!trimmedURL.isEmpty, "baseURL must not be blank")
+
+        guard let url = URL(string: trimmedURL) else {
+            preconditionFailure("baseURL must be a valid URL, got '\(baseURL)'")
+        }
+
+        guard let scheme = url.scheme?.lowercased() else {
+            preconditionFailure("baseURL must include a scheme (http:// or https://), got '\(baseURL)'")
+        }
+
+        precondition(
+            scheme == "http" || scheme == "https",
+            "baseURL scheme must be http or https, got '\(scheme)'"
+        )
+
+        precondition(
+            url.host != nil,
+            "baseURL must include a host, got '\(baseURL)'"
+        )
+
         self.baseURL = baseURL
         self.requestTimeout = requestTimeout
         self.connectTimeout = connectTimeout

@@ -16,32 +16,40 @@ enum Validation {
         return addressRegex.firstMatch(in: address, range: range) != nil
     }
 
-    static func requireValidAddress(_ address: String) {
-        precondition(
-            isValidAddress(address),
-            "userAddress must be a valid Ethereum address (0x + 40 hex chars), got \(address)"
-        )
+    static func requireValidAddress(_ address: String) throws {
+        guard isValidAddress(address) else {
+            throw CoFheError.invalidInput(
+                message: "userAddress must be a valid Ethereum address (0x + 40 hex chars), got \(address)"
+            )
+        }
     }
 
     /// Validate that a decimal string represents a non-negative integer within the given bit width.
     ///
     /// Uses string-length comparison to avoid BigInteger dependencies.
-    static func requireUintRange(value: String, bits: Int, label: String) {
+    static func requireUintRange(value: String, bits: Int, label: String) throws {
         guard let maxStr = maxValues[bits] else {
             preconditionFailure("Unsupported bit width: \(bits)")
         }
 
         // Must be non-empty, all digits, no leading zeros (except "0" itself)
-        precondition(!value.isEmpty, "\(label) value must not be empty")
-        precondition(value.allSatisfy(\.isNumber), "\(label) value must be a non-negative decimal integer, got \(value)")
+        guard !value.isEmpty else {
+            throw CoFheError.invalidInput(message: "\(label) value must not be empty")
+        }
+
+        guard value.allSatisfy(\.isNumber) else {
+            throw CoFheError.invalidInput(message: "\(label) value must be a non-negative decimal integer, got \(value)")
+        }
+
         if value.count > 1 {
-            precondition(!value.hasPrefix("0"), "\(label) value must not have leading zeros, got \(value)")
+            guard !value.hasPrefix("0") else {
+                throw CoFheError.invalidInput(message: "\(label) value must not have leading zeros, got \(value)")
+            }
         }
 
         // Compare by length first, then lexicographically
-        precondition(
-            value.count < maxStr.count || (value.count == maxStr.count && value <= maxStr),
-            "\(label) value must be in range 0..2^\(bits)-1, got \(value)"
-        )
+        guard value.count < maxStr.count || (value.count == maxStr.count && value <= maxStr) else {
+            throw CoFheError.invalidInput(message: "\(label) value must be in range 0..2^\(bits)-1, got \(value)")
+        }
     }
 }
