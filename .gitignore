@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+Build/
+DerivedData/
+Pods/
+xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.swp
+*~
+Package.resolved
+.swiftpm/
