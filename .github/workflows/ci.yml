@@ -37,3 +37,19 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.lcov
           fail_ci_if_error: false
+
+  e2e:
+    runs-on: macos-14
+    # Run on main branch pushes or when COFHE_BASE_URL secret is set
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && secrets.COFHE_BASE_URL != '')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run E2E tests
+        env:
+          # Use secret if available, otherwise use CloudFront URL
+          COFHE_BASE_URL: ${{ secrets.COFHE_BASE_URL || 'https://d2n919dvskt3pa.cloudfront.net' }}
+        run: swift test --filter E2E
