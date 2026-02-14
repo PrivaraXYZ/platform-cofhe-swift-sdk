@@ -40,10 +40,6 @@ jobs:
 
   e2e:
     runs-on: macos-14
-    # Run on main branch pushes or when COFHE_BASE_URL secret is set
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && secrets.COFHE_BASE_URL != '')
 
     steps:
       - uses: actions/checkout@v4
